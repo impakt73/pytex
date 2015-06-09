@@ -23,7 +23,23 @@ from xml.etree.cElementTree import Element, ElementTree, SubElement, tostring
 import xml.dom.minidom
 import os
 
-class AtlasPacker:
+class ImageInfo(object):
+    """A small data structure for holding information about images"""
+
+    def __init__(self):
+        self.name = ""
+        self.path = ""
+        self.containsAlpha = False
+        self.boundingBox = [0, 0, 0, 0]
+
+class PackedImageInfo(object):
+    """A small data structure for holding information about packed images"""
+    
+    def __init__(self, packPosition, packedBoundingBox):
+        self.packPosition = packPosition
+        self.packedBoundingBox = packedBoundingBox
+
+class AtlasPacker(object):
     """A class for packing texture atlases"""
     
     def __init__(self):
@@ -115,6 +131,126 @@ class AtlasPacker:
         
         return tuple( bbox )
                     
+    def _GetImageInfo(self, imagePaths):
+        # A list of the resulting ImageInfo objects
+        imageInfoList = []
+
+        # Collect information about the images
+        for filepath in imagePaths:
+            try:
+                # Set up some basic info about the image.
+                imageInfo = ImageInfo()
+                imageInfo.name = os.path.basename(filepath)
+                imageInfo.path = filepath
+
+                # Open the image.
+                image = Image.open(filepath)
+
+                # Check if the image has alpha.
+                imageInfo.containsAlpha = (image.mode == "RGBA")
+
+                # Extract the dimensions of the image.
+                imageInfo.boundingBox =  [0, 0, image.size[0], image.size[1]]
+
+                # Collect the result
+                imageInfoList.append(imageInfo)
+
+            except IOError:
+                print "Failed to get image info for image %s!" % os.path.basename(filepath)
+
+        # Return the results.
+        return imageInfoList
+
+    def _CropBoundingBoxes(self, imageInfoList, cropColor):
+        # Crop bounding box for each image in the list.
+        for imageInfo in imageInfoList:
+            try:
+                # Load the image
+                image = Image.open(imageInfo.path)
+
+                # Make sure it's in RGBA format.
+                if image.mode != "RGBA":
+                    image = image.convert("RGBA")
+
+                # Crop the bounding box using the image data.
+                image.boundingBox = self._FindBBox(image, cropColor)
+            
+            except IOError:
+                print "Failed to calculate crop bounding box for image %s!" % imageInfo.name
+
+    def _PackImages(self, imageInfoList, padding, size):
+        # Create a dictionary of imagePaths to tuples of ImageInfo and PackedImageInfo
+        packedImageDict = dict()
+
+        # A bool that indicates success or failure.
+        packingResult = True
+
+        # Create a rectangle packer for the current size.
+        packer = CygonRectanglePacker(*size)
+
+        # Calculate the texel width and height for the current size.
+        texelWidth = 1.0 / float( size[0] )
+        texelHeight = 1.0 / float( size[1] )
+
+        # Attempt to pack each image.
+        for imageInfo in imageInfoList:
+            assert imageInfo.path not in packedImageDict
+
+            # Get the image dimensions
+            imageWidth = imageInfo.boundingBox[2]
+            imageHeight = imageInfo.boundingBox[3]
+
+            # Calculate the effective image dimensions.
+            effectiveImageWidth = imageWidth + (padding * 2.0)
+            effectiveImageHeight = imageHeight + (padding * 2.0)
+
+            # Send the image over to the packing algorithm
+            packingResult = packer.Pack(effectiveImageWidth, effectiveImageHeight)
+            if packingResult is not None:
+                # The pack was successful, calculate the values for the packed bounding box.
+                packedX = self._Lerp(x + padding, size[0])
+                packedY = self._Lerp(y + padding, size[1])
+                packedWidth = float(imageWidth * texelWidth)
+                packedHeight = float(imageHeight * texelHeight)
+                packedImageDict[imageInfo.path] = (imageInfo, PackedImageInfo((x, y), [packedX, packedY, packedWidth, packedHeight]))
+            else:
+                # The pack failed. Destroy all results and return.
+                print "Failed to pack images into image of size %s!" % str(size)
+                packedImageDict.clear()
+                packingResult = False
+                break
+
+        # Return the results.
+        return (packingResult, packedImageDict)
+
+    def _CompositePackedImages(self, outputFilename, size, padding, packedImageDict):
+        # Create the output image.
+        outImage = Image.new("RGBA", *size)
+
+        # Composite all packed images into the output image.
+        for packedImagePath, packedImageData in packedImageDict.iteritems():
+            try:
+                # Open the image
+                image = Image.open(packedImagaData[0].path)
+
+                # Make sure it's an RGBA image.
+                if image.mode != "RGBA":
+                    image = image.convert("RGBA")
+
+                # Crop the image to its bounding box.
+                image = image.crop(packedImageData[0].boundingBox)
+
+                # Pad the image.
+                image = ImageOps.expand(image, padding, 0)
+
+                # Paste the image into the output image.
+                outImage.paste(image, packedImageData[1].packPosition)
+
+            except IOError:
+                print "Failed to composite packed image %s into output image %s!" % (packedImagePath, outputFilename)
+
+        # Save the output image
+        outImage.save(outputFilename)
     
     def Pack(self, outputFilename, size, cropColor, padding, imagePaths):
         print "Packing Images..."
