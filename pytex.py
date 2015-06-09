@@ -1,3 +1,4 @@
+"""
 pytex
 Copyright (C) 2015  Gregory Mitrano
 
@@ -14,7 +15,7 @@ GNU General Public License for more details.
 You should have received a copy of the GNU General Public License along
 with this program; if not, write to the Free Software Foundation, Inc.,
 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
-
+"""
 
 from PIL import Image, ImageOps
 from cygon import CygonRectanglePacker
@@ -171,12 +172,3 @@ class AtlasPacker:
         print "Done!"
         
         return True
-    
-
-if __name__ == "__main__":
-    imageFilenames = []
-    for filename in os.listdir("res"):
-        imageFilenames.append( os.path.join( "res", filename ) )
-        
-    packer = AtlasPacker()
-    packer.Pack( "Packed.png", ( 2048, 2048 ), ( 0,0,0,0 ), 4, imageFilenames )
