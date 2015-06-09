@@ -29,15 +29,15 @@ class AtlasPacker:
     def __init__(self):
         pass
     
-    def __Lerp(self, x, max):
+    def _Lerp(self, x, max):
         return float( x ) / float( max )
     
-    def __FindBBox(self, image, color=(0,0,0,0)):
+    def _FindBBox(self, image, color=(0,0,0,0)):
         alphaTestMode = ( color[3] is 0 )
         img = image.load()
         bbox = [0,0,image.size[0],image.size[1]]
         
-        #Find top
+        # Find top
         for y in xrange( image.size[1] ):
             emptyRow = True
             for x in xrange( image.size[0] ):
@@ -56,7 +56,7 @@ class AtlasPacker:
                 bbox[1] = y
                 break
             
-        #Find bottom
+        # Find bottom
         for y in reversed( xrange( image.size[1] ) ):
             emptyRow = True
             for x in reversed( xrange( image.size[0] ) ):
@@ -75,7 +75,7 @@ class AtlasPacker:
                 bbox[3] = y+1
                 break
             
-        #Find left
+        # Find left
         for x in xrange( image.size[0] ):
             emptyRow = True
             for y in xrange( image.size[1] ):
@@ -94,7 +94,7 @@ class AtlasPacker:
                 bbox[0] = x
                 break
             
-        #Find right
+        # Find right
         for x in reversed( xrange( image.size[0] ) ):
             emptyRow = True
             for y in reversed( xrange( image.size[1] ) ):
@@ -131,7 +131,7 @@ class AtlasPacker:
         for filepath in imagePaths:
             image = Image.open( filepath )
             image = image.convert( "RGBA" )
-            image = image.crop( self.__FindBBox( image, cropColor ) )
+            image = image.crop( self._FindBBox( image, cropColor ) )
             image = ImageOps.expand( image, padding, 0 )
             result = packer.Pack( *image.size )
             if result is not None:
@@ -142,8 +142,8 @@ class AtlasPacker:
                 maxPos = ( maxPos[0], max( maxPos[1], result.y + image.size[1] ) )
                 fileNode = SubElement( rootNode, "file" )
                 fileNode.set( "name", filename )
-                fileNode.set( "x", str( self.__Lerp( result.x + padding, size[0] ) ) )
-                fileNode.set( "y", str( self.__Lerp( result.y + padding, size[1] ) ) )
+                fileNode.set( "x", str( self._Lerp( result.x + padding, size[0] ) ) )
+                fileNode.set( "y", str( self._Lerp( result.y + padding, size[1] ) ) )
                 fileNode.set( "width", str( float( image.size[0] - (padding * 2.0) ) * texelWidth ) )
                 fileNode.set( "height", str( float( image.size[1] - (padding * 2.0) ) * texelHeight ) )
                 imgCount += 1
