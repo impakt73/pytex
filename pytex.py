@@ -156,12 +156,15 @@ class AtlasPacker(object):
                 imageInfoList.append(imageInfo)
 
             except IOError:
-                print "Failed to get image info for image %s!" % os.path.basename(filepath)
+                pass
 
         # Return the results.
         return imageInfoList
 
     def _CropBoundingBoxes(self, imageInfoList, cropColor):
+        # Keep track of the result.
+        result = True
+
         # Crop bounding box for each image in the list.
         for imageInfo in imageInfoList:
             try:
@@ -173,10 +176,12 @@ class AtlasPacker(object):
                     image = image.convert("RGBA")
 
                 # Crop the bounding box using the image data.
-                image.boundingBox = self._FindBBox(image, cropColor)
+                imageInfo.boundingBox = self._FindBBox(image, cropColor)
             
             except IOError:
-                print "Failed to calculate crop bounding box for image %s!" % imageInfo.name
+                result = False
+
+        return result
 
     def _PackImages(self, imageInfoList, padding, size):
         # Create a dictionary of imagePaths to tuples of ImageInfo and PackedImageInfo
@@ -208,14 +213,13 @@ class AtlasPacker(object):
             packingResult = packer.Pack(effectiveImageWidth, effectiveImageHeight)
             if packingResult is not None:
                 # The pack was successful, calculate the values for the packed bounding box.
-                packedX = self._Lerp(x + padding, size[0])
-                packedY = self._Lerp(y + padding, size[1])
+                packedX = self._Lerp(packingResult.x + padding, size[0])
+                packedY = self._Lerp(packingResult.y + padding, size[1])
                 packedWidth = float(imageWidth * texelWidth)
                 packedHeight = float(imageHeight * texelHeight)
-                packedImageDict[imageInfo.path] = (imageInfo, PackedImageInfo((x, y), [packedX, packedY, packedWidth, packedHeight]))
+                packedImageDict[imageInfo.path] = (imageInfo, PackedImageInfo((int(packingResult.x), int(packingResult.y)), [packedX, packedY, packedWidth, packedHeight]))
             else:
                 # The pack failed. Destroy all results and return.
-                print "Failed to pack images into image of size %s!" % str(size)
                 packedImageDict.clear()
                 packingResult = False
                 break
@@ -223,15 +227,18 @@ class AtlasPacker(object):
         # Return the results.
         return (packingResult, packedImageDict)
 
-    def _CompositePackedImages(self, outputFilename, size, padding, packedImageDict):
+    def _CompositePackedImages(self, outputPath, size, padding, packedImageDict):
+        # Keep track of the result.
+        result = True
+
         # Create the output image.
-        outImage = Image.new("RGBA", *size)
+        outImage = Image.new("RGBA", size)
 
         # Composite all packed images into the output image.
         for packedImagePath, packedImageData in packedImageDict.iteritems():
             try:
                 # Open the image
-                image = Image.open(packedImagaData[0].path)
+                image = Image.open(packedImageData[0].path)
 
                 # Make sure it's an RGBA image.
                 if image.mode != "RGBA":
@@ -247,64 +254,33 @@ class AtlasPacker(object):
                 outImage.paste(image, packedImageData[1].packPosition)
 
             except IOError:
-                print "Failed to composite packed image %s into output image %s!" % (packedImagePath, outputFilename)
+                result = False
 
         # Save the output image
-        outImage.save(outputFilename)
-    
-    def Pack(self, outputFilename, size, cropColor, padding, imagePaths):
-        print "Packing Images..."
-        
-        packer = CygonRectanglePacker( *size )
-        outImage = Image.new( "RGBA", size )
-        texelWidth = 1.0 / float( size[0] )
-        texelHeight = 1.0 / float( size[1] )
-        imgCount = 0
-        maxPos = ( 0, 0 )
+        outImage.save(outputPath)
+
+        return result
+
+    def _WriteManifestForImages(self, outputPath, size, packedImageDict):
+        # Create the root node.
         rootNode = Element("atlas")
-        rootNode.set( "width", str( size[0] ) )
-        rootNode.set( "height", str( size[1] ) )
-        for filepath in imagePaths:
-            image = Image.open( filepath )
-            image = image.convert( "RGBA" )
-            image = image.crop( self._FindBBox( image, cropColor ) )
-            image = ImageOps.expand( image, padding, 0 )
-            result = packer.Pack( *image.size )
-            if result is not None:
-                filename = os.path.basename(filepath)
-                outImage.paste( image, ( result.x, result.y ) )
-                print "Packed %s at %f, %f | %f, %f | as %s" % ( filepath, result.x, result.y, image.size[0], image.size[1], filename )
-                maxPos = ( max( maxPos[0], result.x + image.size[0] ), maxPos[1] )
-                maxPos = ( maxPos[0], max( maxPos[1], result.y + image.size[1] ) )
-                fileNode = SubElement( rootNode, "file" )
-                fileNode.set( "name", filename )
-                fileNode.set( "x", str( self._Lerp( result.x + padding, size[0] ) ) )
-                fileNode.set( "y", str( self._Lerp( result.y + padding, size[1] ) ) )
-                fileNode.set( "width", str( float( image.size[0] - (padding * 2.0) ) * texelWidth ) )
-                fileNode.set( "height", str( float( image.size[1] - (padding * 2.0) ) * texelHeight ) )
-                imgCount += 1
-            else:
-                print "Image %s Cannot Fit Into Output Image!" % filepath
-                return False
+        rootNode.set("width", str(size[0]))
+        rootNode.set("height", str(size[1]))
         
-        outImage.save( outputFilename )
-        print "Packed %i Images!" % imgCount
-        
-        widthEfficiency =  float(maxPos[0]) / float(size[0])
-        heightEfficiency =  float(maxPos[1]) / float(size[1])
-        totalEfficiency = ( ( widthEfficiency + heightEfficiency ) / 2.0 ) * 100.0
-        print "Packing Efficiency: %i%%" % totalEfficiency
-        
-        print "Writing Config..."
-        root, ext = os.path.splitext( outputFilename )
-        xmlPath = root + ".xml"
-        
-        xmlData =  tostring( rootNode )
+        # Append all image nodes.
+        for packedImagePath, packedImageData in packedImageDict.iteritems():
+            imageNode = SubElement(rootNode, "image")
+            imageNode.set("name", os.path.basename(packedImagePath))
+            imageNode.set("x", str(packedImageData[1].packedBoundingBox[0]))
+            imageNode.set("y", str(packedImageData[1].packedBoundingBox[1]))
+            imageNode.set("width", str(packedImageData[1].packedBoundingBox[2]))
+            imageNode.set("height", str(packedImageData[1].packedBoundingBox[3]))
+
+        # Prettify the xml
+        xmlData = tostring( rootNode )
         dom = xml.dom.minidom.parseString( xmlData )
         xmlText = dom.toprettyxml()
-        with open( xmlPath, "wb" ) as file:
+
+        # Write the xml to the output file.
+        with open( outputPath, "wb" ) as file:
             file.write( xmlText )
-            
-        print "Done!"
-        
-        return True

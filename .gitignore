@@ -4,3 +4,6 @@ tags
 res
 Packed.png
 Packed.xml
+*.swp
+Test.xml
+Test.png
