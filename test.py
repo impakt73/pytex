@@ -15,7 +15,7 @@ class TestPyTex(unittest.TestCase):
 
         # Set up some standard options.
         self._imageSize = (2048, 2048)
-        self._padding = 4
+        self._padding = 2
         self._cropColor = (0, 0, 0, 0)
         self._outputImageName = "Test.png"
         self._outputManifestName = "Test.xml"

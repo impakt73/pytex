@@ -158,6 +158,9 @@ class AtlasPacker(object):
             except IOError:
                 pass
 
+        # Sort the image info list so we get constant results.
+        imageInfoList = sorted(imageInfoList, key=lambda imageInfo: imageInfo.name)
+
         # Return the results.
         return imageInfoList
 
@@ -266,15 +269,19 @@ class AtlasPacker(object):
         rootNode = Element("atlas")
         rootNode.set("width", str(size[0]))
         rootNode.set("height", str(size[1]))
+
+        # Sort the image paths by their basename so we get constant ordering.
+        sortedImagePathList = sorted(packedImageDict.keys(), key=lambda path: os.path.basename(path))
         
         # Append all image nodes.
-        for packedImagePath, packedImageData in packedImageDict.iteritems():
+        for imagePath in sortedImagePathList:
+            packedImageData = packedImageDict[imagePath][1]
             imageNode = SubElement(rootNode, "image")
-            imageNode.set("name", os.path.basename(packedImagePath))
-            imageNode.set("x", str(packedImageData[1].packedBoundingBox[0]))
-            imageNode.set("y", str(packedImageData[1].packedBoundingBox[1]))
-            imageNode.set("width", str(packedImageData[1].packedBoundingBox[2]))
-            imageNode.set("height", str(packedImageData[1].packedBoundingBox[3]))
+            imageNode.set("name", os.path.basename(imagePath))
+            imageNode.set("x", str(packedImageData.packedBoundingBox[0]))
+            imageNode.set("y", str(packedImageData.packedBoundingBox[1]))
+            imageNode.set("width", str(packedImageData.packedBoundingBox[2]))
+            imageNode.set("height", str(packedImageData.packedBoundingBox[3]))
 
         # Prettify the xml
         xmlData = tostring( rootNode )
