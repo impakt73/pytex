@@ -7,4 +7,4 @@ if __name__ == "__main__":
         imageFilenames.append( os.path.join( "res", filename ) )
         
     packer = AtlasPacker()
-    packer.Pack( "Packed.png", ( 2048, 2048 ), ( 0,0,0,0 ), 4, imageFilenames )
+    packer.Pack(imageFilenames, (2048, 2048), "example.png", "example.xml")

@@ -284,3 +284,39 @@ class AtlasPacker(object):
         # Write the xml to the output file.
         with open( outputPath, "wb" ) as file:
             file.write( xmlText )
+
+    def Pack(self, imageFilenames, imageSize, outputImagePath, outputManifestPath, padding=2, cropColor=(0,0,0,0)):
+        print "Packing %d images..." % len(imageFilenames)
+
+        # Calculate information for each image.
+        imageInfoList = self._GetImageInfo(imageFilenames)
+
+        # Crop the images
+        if cropColor is not None:
+            print "Cropping images..."
+            if self._CropBoundingBoxes(imageInfoList, cropColor):
+                print "Cropping successful!"
+            else:
+                print "Cropping failed!"
+
+        # Pack the images.
+        print "Packing images..."
+        result, packedImageDict = self._PackImages(imageInfoList, padding, imageSize)
+        if result:
+            print "Packing successful!"
+        else:
+            print "Packing failed!"
+
+        # Composite the images into the output image.
+        print "Compositing Images to %s..." % os.path.basename(outputImagePath)
+        if self._CompositePackedImages(outputImagePath, imageSize, padding, packedImageDict):
+            print "Compositing successful!"
+        else:
+            print "Compositing failed!"
+
+        # Write the manifest file.
+        print "Writing manifest to %s..." % os.path.basename(outputManifestPath)
+        self._WriteManifestForImages(outputManifestPath, imageSize, packedImageDict)
+        print "Writing successful!"
+
+        print "Packing complete!"
