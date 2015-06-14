@@ -292,7 +292,7 @@ class AtlasPacker(object):
         with open( outputPath, "wb" ) as file:
             file.write( xmlText )
 
-    def Pack(self, imageFilenames, imageSize, outputImagePath, outputManifestPath, padding=2, cropColor=(0,0,0,0)):
+    def Pack(self, imageFilenames, minImageSize, maxImageSize, outputImagePath, outputManifestPath, padding=2, cropColor=(0,0,0,0)):
         print "Packing %d images..." % len(imageFilenames)
 
         # Calculate information for each image.
@@ -308,22 +308,32 @@ class AtlasPacker(object):
 
         # Pack the images.
         print "Packing images..."
-        result, packedImageDict = self._PackImages(imageInfoList, padding, imageSize)
-        if result:
-            print "Packing successful!"
-        else:
-            print "Packing failed!"
+        imageSize = minImageSize
+        packResult = False
+        while (imageSize[0] <= maxImageSize[0] and imageSize[1] <= maxImageSize[1]):
+            print "Packing into %dx%d image..." % imageSize
+            packResult, packedImageDict = self._PackImages(imageInfoList, padding, imageSize)
+            if packResult:
+                print "Packing into %dx%d image successful!" % imageSize
+                break
+            else:
+                print "Packing into %dx%d image failed!" % imageSize
+                imageSize = (imageSize[0] * 2, imageSize[1] * 2)
+        
+        # Only continue if the packing was successful.
+        if packResult:
+            # Composite the images into the output image.
+            print "Compositing Images to %s..." % os.path.basename(outputImagePath)
+            if self._CompositePackedImages(outputImagePath, imageSize, padding, packedImageDict):
+                print "Compositing successful!"
+            else:
+                print "Compositing failed!"
 
-        # Composite the images into the output image.
-        print "Compositing Images to %s..." % os.path.basename(outputImagePath)
-        if self._CompositePackedImages(outputImagePath, imageSize, padding, packedImageDict):
-            print "Compositing successful!"
+            # Write the manifest file.
+            print "Writing manifest to %s..." % os.path.basename(outputManifestPath)
+            self._WriteManifestForImages(outputManifestPath, imageSize, packedImageDict)
+            print "Writing successful!"
         else:
-            print "Compositing failed!"
-
-        # Write the manifest file.
-        print "Writing manifest to %s..." % os.path.basename(outputManifestPath)
-        self._WriteManifestForImages(outputManifestPath, imageSize, packedImageDict)
-        print "Writing successful!"
+            print "Failed to pack images into image of desired dimensions."
 
         print "Packing complete!"
