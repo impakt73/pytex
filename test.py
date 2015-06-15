@@ -50,7 +50,8 @@ class TestPyTex(unittest.TestCase):
         imageInfoList = self._packer._GetImageInfo(self._imageFilenames)
         self._packer._CropBoundingBoxes(imageInfoList, self._cropColor)
         packedImageDict = self._packer._PackImages(imageInfoList, self._padding, self._imageSize)[1]
-        self._packer._WriteManifestForImages(self._outputManifestName, self._imageSize, packedImageDict) 
+        self._packer._WriteManifestForImages(self._outputManifestName, self._imageSize, "uv", packedImageDict)
+        self._packer._WriteManifestForImages(self._outputManifestName, self._imageSize, "pixel", packedImageDict) 
 
 if __name__ == "__main__":
     suite = unittest.TestLoader().loadTestsFromTestCase(TestPyTex)

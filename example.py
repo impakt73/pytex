@@ -18,7 +18,7 @@ if __name__ == "__main__":
                 outputImagePath = os.path.join(parentPath, directoryName + ".png")
                 outputManifestPath = os.path.join(parentPath, directoryName + ".xml")
                 packer = AtlasPacker()
-                packer.Pack(imageFilenames, (128, 128), (8192, 8192), outputImagePath, outputManifestPath)
+                packer.Pack(imageFilenames, (128, 128), (8192, 8192), "uv", outputImagePath, outputManifestPath)
             else:
                 print "No images found in directory %s!" % directoryPath
         else:

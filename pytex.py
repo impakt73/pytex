@@ -264,7 +264,10 @@ class AtlasPacker(object):
 
         return result
 
-    def _WriteManifestForImages(self, outputPath, size, packedImageDict):
+    def _WriteManifestForImages(self, outputPath, size, mode, packedImageDict):
+        ACCEPTED_MODES = {"uv", "pixel"}
+        assert(mode in ACCEPTED_MODES)
+        
         # Create the root node.
         rootNode = Element("atlas")
         rootNode.set("width", str(size[0]))
@@ -275,13 +278,21 @@ class AtlasPacker(object):
         
         # Append all image nodes.
         for imagePath in sortedImagePathList:
-            packedImageData = packedImageDict[imagePath][1]
+            imageInfo = packedImageDict[imagePath][0]
+            packedImageInfo = packedImageDict[imagePath][1]
             imageNode = SubElement(rootNode, "image")
             imageNode.set("name", os.path.basename(imagePath))
-            imageNode.set("x", str(packedImageData.packedBoundingBox[0]))
-            imageNode.set("y", str(packedImageData.packedBoundingBox[1]))
-            imageNode.set("width", str(packedImageData.packedBoundingBox[2]))
-            imageNode.set("height", str(packedImageData.packedBoundingBox[3]))
+            
+            if mode == "uv":
+                imageNode.set("u1", str(packedImageInfo.packedBoundingBox[0]))
+                imageNode.set("v1", str(packedImageInfo.packedBoundingBox[1]))
+                imageNode.set("u2", str(packedImageInfo.packedBoundingBox[0] + packedImageInfo.packedBoundingBox[2]))
+                imageNode.set("v2", str(packedImageInfo.packedBoundingBox[1] + packedImageInfo.packedBoundingBox[3]))
+            elif mode == "pixel":
+                imageNode.set("x1", str(packedImageInfo.packPosition[0]))
+                imageNode.set("y1", str(packedImageInfo.packPosition[1]))
+                imageNode.set("x2", str(packedImageInfo.packPosition[0] + imageInfo.boundingBox[2]))
+                imageNode.set("y2", str(packedImageInfo.packPosition[1] + imageInfo.boundingBox[3]))
 
         # Prettify the xml
         xmlData = tostring( rootNode )
@@ -292,7 +303,7 @@ class AtlasPacker(object):
         with open( outputPath, "wb" ) as file:
             file.write( xmlText )
 
-    def Pack(self, imageFilenames, minImageSize, maxImageSize, outputImagePath, outputManifestPath, padding=2, cropColor=(0,0,0,0)):
+    def Pack(self, imageFilenames, minImageSize, maxImageSize, manifestMode, outputImagePath, outputManifestPath, padding=2, cropColor=(0,0,0,0)):
         print "Packing %d images..." % len(imageFilenames)
 
         # Calculate information for each image.
@@ -331,7 +342,7 @@ class AtlasPacker(object):
 
             # Write the manifest file.
             print "Writing manifest to %s..." % os.path.basename(outputManifestPath)
-            self._WriteManifestForImages(outputManifestPath, imageSize, packedImageDict)
+            self._WriteManifestForImages(outputManifestPath, imageSize, manifestMode, packedImageDict)
             print "Writing successful!"
         else:
             print "Failed to pack images into image of desired dimensions."
