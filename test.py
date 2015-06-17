@@ -19,6 +19,7 @@ class TestPyTex(unittest.TestCase):
         self._cropColor = (0, 0, 0, 0)
         self._outputImageName = "Test.png"
         self._outputManifestName = "Test.xml"
+        self._sliceTestImage = "SliceTest.png"
 
     def tearDown(self):
         # Nullify all variables.
@@ -52,6 +53,10 @@ class TestPyTex(unittest.TestCase):
         packedImageDict = self._packer._PackImages(imageInfoList, self._padding, self._imageSize)[1]
         self._packer._WriteManifestForImages(self._outputManifestName, self._imageSize, "uv", packedImageDict)
         self._packer._WriteManifestForImages(self._outputManifestName, self._imageSize, "pixel", packedImageDict) 
+
+    def test_SliceImage(self):
+        sliceResult = self._packer._SliceImage(self._sliceTestImage, (256, 256))
+        self.assertTrue(sliceResult, "Failed to slice image!")
 
 if __name__ == "__main__":
     suite = unittest.TestLoader().loadTestsFromTestCase(TestPyTex)

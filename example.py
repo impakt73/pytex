@@ -22,6 +22,13 @@ if __name__ == "__main__":
             else:
                 print "No images found in directory %s!" % directoryPath
         else:
-            print "Invalid directory '%s' supplied!" % sys.argv[1]
+            if os.path.exists(sys.argv[1]) and os.path.splitext(sys.argv[1])[1] in IMAGE_EXTENSIONS:
+                imagePath = sys.argv[1]
+                print "Slicing image %s into 128x128 chunks!" % imagePath
+
+                packer = AtlasPacker()
+                packer.Slice(imagePath, (128, 128))
+            else:
+                print "Invalid image path supplied!"
     else:
         print "No directory supplied!"

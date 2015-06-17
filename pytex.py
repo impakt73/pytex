@@ -303,6 +303,57 @@ class AtlasPacker(object):
         with open( outputPath, "wb" ) as file:
             file.write( xmlText )
 
+    def _SliceImage(self, imageFilepath, tileSize):
+        # Keep track of the result of the operation.
+        result = True
+
+        # Make sure the image actually exists.
+        assert(os.path.exists(imageFilepath))
+        
+        # Calculate the original image extension.
+        imageExt = os.path.splitext(imageFilepath)[1]
+
+        # Calculate the original image's directory.
+        imageDir = os.path.dirname(imageFilepath)
+
+        # Calculate and create the output directory if necessary.
+        outputDir = os.path.join(imageDir, os.path.basename(os.path.splitext(imageFilepath)[0]))
+        if not os.path.exists(outputDir):
+            os.mkdir(outputDir)
+        
+        try:
+            # Open the image.
+            image = Image.open(imageFilepath)
+
+            # Make sure the tile sizes are valid.
+            assert(image.size[0] % tileSize[0] == 0)
+            assert(image.size[1] % tileSize[1] == 0)
+
+            # Calculate the total size in tiles.
+            sizeInTiles = (image.size[0] / tileSize[0], image.size[1] / tileSize[1])
+
+            # Iterate over each tile.
+            for y in xrange(sizeInTiles[1]):
+                for x in xrange(sizeInTiles[0]):
+                    # Calculate the top left corner of each tile in pixel coordinates.
+                    xPos = x * tileSize[0]
+                    yPos = y * tileSize[1]
+
+                    # Make a copy of the original image so we can crop it to the correct region.
+                    tileImage = image.crop([xPos, yPos, xPos + tileSize[0], yPos + tileSize[1]])
+
+                    # Create the output image, paste the cropped image into it, and save it in the output directory.
+                    outputTileImage = Image.new(tileImage.mode, tileSize)
+                    outputTileImage.paste(tileImage, [0, 0, tileImage.size[0], tileImage.size[1]])
+                    outputTileImage.save(os.path.join(outputDir, "%d_%d%s" % (xPos, yPos, imageExt)))
+
+
+        except IOError:
+            result = False
+
+        # Return the result.
+        return result
+
     def Pack(self, imageFilenames, minImageSize, maxImageSize, manifestMode, outputImagePath, outputManifestPath, padding=2, cropColor=(0,0,0,0)):
         print "Packing %d images..." % len(imageFilenames)
 
@@ -348,3 +399,14 @@ class AtlasPacker(object):
             print "Failed to pack images into image of desired dimensions."
 
         print "Packing complete!"
+
+
+    def Slice(self, imageFilepath, tileSize):
+        print "Slicing image %s..." % os.path.basename(imageFilepath)
+
+        if self._SliceImage(imageFilepath, tileSize):
+            print "Slicing successful!"
+        else:
+            print "Slicing failed!"
+
+        print "Slicing complete!"
